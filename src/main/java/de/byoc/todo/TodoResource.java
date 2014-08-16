@@ -7,14 +7,13 @@ import javax.ws.rs.core.MediaType;
 
 import de.byoc.todo.data.TodoItem;
 
-@Path("todo")
+@Path("/todos")
 public class TodoResource {
 
 	@GET
 	@Produces(MediaType.APPLICATION_JSON)
-	public TodoItem getTodo() {
+	public TodoItem getAllTodos() {
 		TodoItem item = new TodoItem();
-		item.setItemName("This is my first item");
 		return item;
 	}
 

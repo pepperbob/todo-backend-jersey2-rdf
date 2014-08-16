@@ -9,15 +9,48 @@ import javax.xml.bind.annotation.XmlRootElement;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class TodoItem {
 
-	@XmlElement(name = "todo-name")
-	private String itemName;
+	@XmlElement(name = "id")
+	private Integer id;
 
-	public String getItemName() {
-		return itemName;
+	@XmlElement(name = "title")
+	private String title;
+
+	@XmlElement(name = "completed")
+	private Boolean completed;
+
+	@XmlElement(name = "order")
+	private Integer order;
+
+	public Integer getId() {
+		return id;
 	}
 
-	public void setItemName(String itemName) {
-		this.itemName = itemName;
+	public void setId(Integer id) {
+		this.id = id;
+	}
+
+	public String getTitle() {
+		return title;
+	}
+
+	public void setTitle(String title) {
+		this.title = title;
+	}
+
+	public Boolean getCompleted() {
+		return completed;
+	}
+
+	public void setCompleted(Boolean completed) {
+		this.completed = completed;
+	}
+
+	public Integer getOrder() {
+		return order;
+	}
+
+	public void setOrder(Integer order) {
+		this.order = order;
 	}
 
 }

@@ -1,20 +1,18 @@
 package de.byoc.todo;
 
+import static org.junit.Assert.assertEquals;
+
 import javax.ws.rs.core.Application;
 
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.test.JerseyTest;
-
 import org.junit.Test;
-import static org.junit.Assert.assertEquals;
 
-import de.byoc.todo.MyResource;
-
-public class MyResourceTest extends JerseyTest {
+public class TodoResourceTest extends JerseyTest {
 
     @Override
     protected Application configure() {
-        return new ResourceConfig(MyResource.class);
+        return new ResourceConfig(TodoResource.class);
     }
 
     /**

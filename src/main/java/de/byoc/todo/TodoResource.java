@@ -1,5 +1,6 @@
 package de.byoc.todo;
 
+import javax.inject.Singleton;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -8,6 +9,7 @@ import javax.ws.rs.core.MediaType;
 import de.byoc.todo.data.TodoItem;
 
 @Path("/todos")
+@Singleton
 public class TodoResource {
 
 	@GET

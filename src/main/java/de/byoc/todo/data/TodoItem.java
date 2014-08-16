@@ -10,7 +10,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 public class TodoItem {
 
 	@XmlElement(name = "id")
-	private Integer id;
+	private String id;
 
 	@XmlElement(name = "title")
 	private String title;
@@ -21,11 +21,11 @@ public class TodoItem {
 	@XmlElement(name = "order")
 	private Integer order;
 
-	public Integer getId() {
+	public String getId() {
 		return id;
 	}
 
-	public void setId(Integer id) {
+	public void setId(String id) {
 		this.id = id;
 	}
 
@@ -53,4 +53,9 @@ public class TodoItem {
 		this.order = order;
 	}
 
+	@Override
+	public String toString() {
+		return "TodoItem [id=" + id + ", title=" + title + ", completed="
+				+ completed + ", order=" + order + "]";
+	}
 }

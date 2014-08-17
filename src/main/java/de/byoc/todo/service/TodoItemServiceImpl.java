@@ -26,7 +26,7 @@ import org.openrdf.repository.RepositoryResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import de.byoc.todo.TODO;
+import de.byoc.todo.data.TODO;
 import de.byoc.todo.data.TodoItem;
 
 public class TodoItemServiceImpl implements TodoItemService {

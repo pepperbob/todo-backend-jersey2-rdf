@@ -1,4 +1,4 @@
-package de.byoc.todo;
+package de.byoc.todo.data;
 
 import org.openrdf.model.URI;
 import org.openrdf.model.impl.ValueFactoryImpl;

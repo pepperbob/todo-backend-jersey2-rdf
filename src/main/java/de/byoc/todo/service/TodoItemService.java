@@ -6,14 +6,18 @@ import de.byoc.todo.data.TodoItem;
 
 public interface TodoItemService {
 
-	void createItem(TodoItem toBeCreated);
-	
 	List<TodoItem> getAllItems();
-	
-	void deleteAllItems();
 
 	TodoItem getItem(String itemId);
 
-	void createItem(TodoItem item, String namespace);
-	
+	TodoItem createItem(TodoItem toBeCreated);
+
+	TodoItem createItem(TodoItem item, String namespace);
+
+	void updateItem(TodoItem item);
+
+	void deleteAllItems();
+
+	void deleteItem(String itemId);
+
 }

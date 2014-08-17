@@ -1,22 +1,19 @@
 package de.byoc.todo;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.fge.jsonpatch.JsonPatch;
-import com.github.fge.jsonpatch.JsonPatchException;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.LinkedHashMap;
 
 import javax.ws.rs.GET;
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedHashMap;
-import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 import javax.ws.rs.ext.MessageBodyWriter;
 import javax.ws.rs.ext.Provider;
@@ -24,95 +21,96 @@ import javax.ws.rs.ext.ReaderInterceptor;
 import javax.ws.rs.ext.ReaderInterceptorContext;
 
 import org.glassfish.jersey.message.MessageBodyWorkers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Throwables;
+
+import de.byoc.todo.data.TodoItem;
+
+/**
+ * Naive approach to apply the json-patch.
+ * 
+ * @author michael
+ * 
+ */
 @Provider
 @PATCH
 public class PatchReader implements ReaderInterceptor {
-  private UriInfo info;
-  private MessageBodyWorkers workers;
 
-  @Context
-  public void setInfo(UriInfo info) {
-    this.info = info;
-  }
+	private final Logger log = LoggerFactory.getLogger(getClass());
 
-  @Context
-  public void setWorkers(MessageBodyWorkers workers) {
-    this.workers = workers;
-  }
+	private UriInfo info;
+	private MessageBodyWorkers workers;
 
-  @Override
-  public Object aroundReadFrom(ReaderInterceptorContext readerInterceptorContext) throws IOException, WebApplicationException {
-    // Get the resource we are being called on, 
-    // and find the GET method
-    Object resource = info.getMatchedResources().get(0);
+	@Context
+	public void setInfo(UriInfo info) {
+		this.info = info;
+	}
 
-    Method found = null;
-    for (Method next : resource.getClass().getMethods()) {
-      if (next.getAnnotation(GET.class) != null) {
-        found = next;
-        break;
-      }
-    }
+	@Context
+	public void setWorkers(MessageBodyWorkers workers) {
+		this.workers = workers;
+	}
 
+	@Override
+	public Object aroundReadFrom(
+			ReaderInterceptorContext readerInterceptorContext)
+			throws IOException, WebApplicationException {
+		try {
+			// Get the resource we are being called on,
+			// and find the GET method
+			Object resource = info.getMatchedResources().get(0);
 
-    if (found != null) {
+			Method found = resource.getClass().getMethod("getItem", String.class);
+			log.debug("Will call Method {} w/ Paremeter ({}) to receive ServerState",
+					found, info.getPath());
+			Object bean = found.invoke(resource, info.getPath());
 
-      // Invoke the get method to get the state we are trying to patch
-      //
-      Object bean;
-      try {
-        bean = found.invoke(resource);
-      } catch (Exception e) {
-        throw new WebApplicationException(e);
-      }
-      
-      // Convert this object to a an aray of bytes 
-      ByteArrayOutputStream baos = new ByteArrayOutputStream();
-      MessageBodyWriter<? super Object> bodyWriter =
-        workers.getMessageBodyWriter(Object.class, bean.getClass(), 
-          new Annotation[0], MediaType.APPLICATION_JSON_TYPE);
+			if (bean == null) {
+				throw new NotFoundException();
+			}
 
-      bodyWriter.writeTo(bean, bean.getClass(), bean.getClass(), 
-          new Annotation[0], MediaType.APPLICATION_JSON_TYPE,
-          new MultivaluedHashMap<String, Object>(), baos);
+			log.debug("Found Bean {}", bean);
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			MessageBodyWriter<TodoItem> mbw = workers.getMessageBodyWriter(
+					TodoItem.class, TodoItem.class, new Annotation[] {},
+					MediaType.APPLICATION_JSON_TYPE);
 
+			mbw.writeTo((TodoItem) bean, TodoItem.class, TodoItem.class,
+					new Annotation[] {}, MediaType.APPLICATION_JSON_TYPE,
+					new MultivaluedHashMap<String, Object>(), baos);
 
-      // Use the Jackson 2.x classes to convert both the incoming patch  
-      // and the current state of the object into a JsonNode / JsonPatch
-      ObjectMapper mapper = new ObjectMapper();
-      JsonNode serverState = mapper.readValue(baos.toByteArray(), 
-        JsonNode.class);
-      JsonNode patchAsNode = mapper.readValue(
-         readerInterceptorContext.getInputStream(), 
-        JsonNode.class);
-      JsonPatch patch = JsonPatch.fromJson(patchAsNode);
+			ObjectMapper mapper = new ObjectMapper();
+			LinkedHashMap<String, Object> serverState = mapper.readValue(
+					baos.toByteArray(), LinkedHashMap.class);
+			LinkedHashMap<String, Object> patchAsNode = mapper.readValue(
+					readerInterceptorContext.getInputStream(),
+					LinkedHashMap.class);
 
-      try {
-        // Apply the patch
-        JsonNode result = patch.apply(serverState);
+			log.debug("ServerState: {}", serverState);
+			log.debug("PatchState: {}", patchAsNode);
+			
+			// merge the patch with server state
+			for (String k : serverState.keySet()) {
+				if (patchAsNode.containsKey(k)) {
+					log.debug("PatchState: {} = {}", k, patchAsNode.get(k));
+					serverState.put(k, patchAsNode.get(k));
+				}
+			}
 
-        // Stream the result & modify the stream on the readerInterceptor
-        ByteArrayOutputStream resultAsByteArray = 
-          new ByteArrayOutputStream();
-        mapper.writeValue(resultAsByteArray, result);
-        readerInterceptorContext.setInputStream(
-          new ByteArrayInputStream(
-            resultAsByteArray.toByteArray()));
+			// write back merged state
+			ByteArrayOutputStream resultAsByteArray = new ByteArrayOutputStream();
+			mapper.writeValue(resultAsByteArray, serverState);
+			readerInterceptorContext.setInputStream(new ByteArrayInputStream(resultAsByteArray.toByteArray()));
 
-        // Pass control back to the Jersey code
-        return readerInterceptorContext.proceed();
-
-
-      } catch (JsonPatchException e) {
-        throw new WebApplicationException(
-          Response.status(500).type("text/plain").entity(e.getMessage()).build());
-      }
-
-    } else {
-      throw new IllegalArgumentException("No matching GET method on resource");
-    }
-
-
-  }
+			// Pass control back to the Jersey code
+			return readerInterceptorContext.proceed();
+		} catch (NoSuchMethodException | SecurityException
+				| IllegalAccessException | IllegalArgumentException
+				| InvocationTargetException e1) {
+			throw Throwables.propagate(e1);
+		}
+	}
 }

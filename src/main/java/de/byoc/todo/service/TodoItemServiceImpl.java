@@ -44,20 +44,18 @@ public class TodoItemServiceImpl implements TodoItemService {
 	}
 
 	@Override
-	public void createItem(TodoItem item) {
-		createItem(item, Todo.NS);
+	public TodoItem createItem(TodoItem item) {
+		return createItem(item, Todo.NS);
 	}
 
 	@Override
-	public void createItem(TodoItem item, String namespace) {
+	public TodoItem createItem(TodoItem item, String namespace) {
 		RepositoryConnection con = provider.get();
 		try {
 			item.setId(UUID.randomUUID().toString());
 
 			URI itemUri = vf.createURI(namespace, item.getId());
 
-			item.setUrl(itemUri.stringValue());
-			
 			con.add(itemUri, RDF.TYPE, Todo.TYPE);
 			con.add(itemUri, Todo.ID, vf.createLiteral(item.getId()));
 			con.add(itemUri, Todo.TITLE, vf.createLiteral(item.getTitle()));
@@ -66,10 +64,50 @@ public class TodoItemServiceImpl implements TodoItemService {
 			boolean isCompleted = item.getCompleted() != null ? item
 					.getCompleted() : false;
 			con.add(itemUri, Todo.COMPLETED, vf.createLiteral(isCompleted));
+
+			if (item.getOrder() != null) {
+				con.add(itemUri, Todo.ORDER, vf.createLiteral(item.getOrder()));
+			}
+
+			con.commit();
+
+			return getItem(item.getId());
+		} catch (RepositoryException e) {
+			rollback(con);
+			throw Throwables.propagate(e);
+		} finally {
+			close(con);
+		}
+	}
+
+	@Override
+	public void updateItem(TodoItem item) {
+		RepositoryConnection con = provider.get();
+		try {
+			URI existingUri = vf.createURI(item.getUrl());
+
+			con.remove(con.getStatements(existingUri, Todo.TITLE, null, true));
+			con.add(existingUri, Todo.TITLE, vf.createLiteral(item.getTitle()));
+
+			boolean isCompleted = item.getCompleted() != null ? item
+					.getCompleted() : false;
+			con.remove(con.getStatements(existingUri, Todo.COMPLETED, null,
+					true));
+			con.add(existingUri, Todo.COMPLETED, vf.createLiteral(isCompleted));
+
+			if (item.getOrder() != null) {
+				con.remove(con.getStatements(existingUri, Todo.ORDER, null,
+						true));
+				con.add(existingUri, Todo.ORDER,
+						vf.createLiteral(item.getOrder()));
+			}
+
 			con.commit();
 		} catch (RepositoryException e) {
 			rollback(con);
 			throw Throwables.propagate(e);
+		} finally {
+			close(con);
 		}
 	}
 
@@ -83,10 +121,10 @@ public class TodoItemServiceImpl implements TodoItemService {
 
 	@Override
 	public List<TodoItem> getAllItems() {
+		RepositoryConnection con = provider.get();
 		try {
 			List<TodoItem> result = new ArrayList<>();
 
-			RepositoryConnection con = provider.get();
 			RepositoryResult<Statement> statements = con.getStatements(null,
 					RDF.TYPE, Todo.TYPE, true);
 			while (statements.hasNext()) {
@@ -97,24 +135,28 @@ public class TodoItemServiceImpl implements TodoItemService {
 			return result;
 		} catch (RepositoryException e) {
 			throw Throwables.propagate(e);
+		} finally {
+			close(con);
 		}
 	}
 
 	@Override
 	public void deleteAllItems() {
+		RepositoryConnection con = provider.get();
 		try {
-			RepositoryConnection con = provider.get();
 			con.remove(con.getStatements(null, RDF.TYPE, Todo.TYPE, true));
 			con.commit();
 		} catch (RepositoryException e) {
 			throw Throwables.propagate(e);
+		} finally {
+			close(con);
 		}
 	}
 
 	@Override
 	public TodoItem getItem(String itemId) {
+		RepositoryConnection con = provider.get();
 		try {
-			RepositoryConnection con = provider.get();
 			String qs = "PREFIX : <http://todo.byoc.de/> SELECT ?item WHERE { ?item :id ?id . FILTER (?id = '%s') }";
 			log.debug("Query by itemId: {}", qs);
 			TupleQuery query = con.prepareTupleQuery(QueryLanguage.SPARQL,
@@ -128,6 +170,8 @@ public class TodoItemServiceImpl implements TodoItemService {
 		} catch (RepositoryException | MalformedQueryException
 				| QueryEvaluationException e) {
 			throw Throwables.propagate(e);
+		} finally {
+			close(con);
 		}
 	}
 
@@ -135,7 +179,7 @@ public class TodoItemServiceImpl implements TodoItemService {
 		RepositoryConnection con = provider.get();
 		try {
 			log.debug("Getting item {}", item);
-			String qs = "PREFIX : <http://todo.byoc.de/> SELECT ?i ?id ?title ?completed WHERE { ?i :id ?id; :title ?title; :completed ?completed . FILTER (?i = <%s>) }";
+			String qs = "PREFIX : <http://todo.byoc.de/> SELECT ?i ?id ?title ?completed ?order WHERE { ?i :id ?id; :title ?title; :completed ?completed . OPTIONAL { ?i :order ?order } FILTER (?i = <%s>) }";
 			log.debug("Querying: {}", qs);
 			TupleQuery q = con.prepareTupleQuery(QueryLanguage.SPARQL,
 					String.format(qs, item));
@@ -151,11 +195,48 @@ public class TodoItemServiceImpl implements TodoItemService {
 			found.setCompleted(set.getBinding("completed").getValue()
 					.stringValue().equals("true"));
 			found.setUrl(set.getBinding("i").getValue().stringValue());
+
+			if (set.getBinding("order") != null) {
+				found.setOrder(Integer.valueOf(set.getBinding("order")
+						.getValue().stringValue()));
+			}
+
 			log.debug("Adding {} to ResultSet", found);
 			return found;
 		} catch (RepositoryException | MalformedQueryException
 				| QueryEvaluationException e) {
 			throw Throwables.propagate(e);
+		} finally {
+			close(con);
+		}
+	}
+
+	@Override
+	public void deleteItem(String itemId) {
+		RepositoryConnection con = provider.get();
+		try {
+			TodoItem item = getItem(itemId);
+			if (item == null) {
+				return;
+			}
+			URI url = vf.createURI(item.getUrl());
+			con.remove(con.getStatements(url, null, null, true));
+			con.commit();
+		} catch (RepositoryException e) {
+			throw Throwables.propagate(e);
+		} finally {
+			close(con);
+		}
+	}
+
+	private void close(RepositoryConnection con) {
+		try {
+			log.debug("Closing connection");
+			if (con == null || !con.isOpen()) {
+				return;
+			}
+			con.close();
+		} catch (RepositoryException ignored) {
 		}
 	}
 

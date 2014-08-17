@@ -57,10 +57,9 @@ public class RootResource {
 	@POST
 	@Consumes(MediaType.APPLICATION_JSON)
 	@Produces(MediaType.APPLICATION_JSON)
-	public Response createTodoItem(TodoItem item, @Context UriInfo uriInfo) {
+	public TodoItem createTodoItem(TodoItem item, @Context UriInfo uriInfo) {
 		logger.debug("Receiving {}", item);
-		service.createItem(item, uriInfo.getBaseUri().toASCIIString());
-		return Response.ok(item).build();
+		return service.createItem(item, uriInfo.getBaseUri().toASCIIString());
 	}
 
 	@PATCH
@@ -70,7 +69,7 @@ public class RootResource {
 	public Response updateTodoItem(@PathParam("item-id") String itemId,
 			TodoItem item) {
 		logger.debug("Updateing item {}", item);
-
+		service.updateItem(item);
 		return Response.ok(item).build();
 	}
 
@@ -79,7 +78,14 @@ public class RootResource {
 	public Response deleteAllTodos() {
 		logger.debug("Deleting all Todos!");
 		service.deleteAllItems();
-		return Response.status(Response.Status.ACCEPTED).build();
+		return Response.accepted().build();
+	}
+	
+	@Path("{item-id}")
+	@DELETE
+	public Response deleteItem(@PathParam("item-id") String itemId) {
+		service.deleteItem(itemId);
+		return Response.accepted().build();
 	}
 
 }

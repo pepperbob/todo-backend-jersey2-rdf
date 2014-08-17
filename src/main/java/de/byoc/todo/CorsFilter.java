@@ -15,10 +15,19 @@ public class CorsFilter implements ContainerResponseFilter {
 	public void filter(ContainerRequestContext request,
 			ContainerResponseContext response) throws IOException {
 		MultivaluedMap<String, Object> headers = response.getHeaders();
-		
+
 		headers.add("Access-Control-Allow-Origin", "*");
-		headers.add("Access-Control-Allow-Methods", "POST, GET, OPTIONS, DELETE, PATCH");
+		headers.add("Access-Control-Allow-Methods",
+				"POST, GET, OPTIONS, DELETE, PATCH");
 		headers.add("Access-Control-Max-Age", "3600");
-		headers.add("Access-Control-Allow-Headers", "x-requested-with, origin, content-type, accept");
+		headers.add("Access-Control-Allow-Headers",
+				"x-requested-with, origin, content-type, accept");
+
+		if ("OPTIONS".equals(request.getMethod())) {
+			if (response.getHeaderString("Accept-Patch") == null) {
+				response.getHeaders().add("Accept-Patch",
+						"application/json-patch+json");
+			}
+		}
 	}
 }

@@ -16,6 +16,8 @@ public final class Todo {
 	public static final URI ORDER = ValueFactoryImpl.getInstance().createURI(NS, "order");
 
 	public static final URI COMPLETED = ValueFactoryImpl.getInstance().createURI(NS, "completed");
+
+	public static final URI URL = ValueFactoryImpl.getInstance().createURI(NS, "url");
 	
 	private Todo() {}
 }

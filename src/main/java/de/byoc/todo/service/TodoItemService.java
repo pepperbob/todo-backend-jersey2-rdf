@@ -11,5 +11,9 @@ public interface TodoItemService {
 	List<TodoItem> getAllItems();
 	
 	void deleteAllItems();
+
+	TodoItem getItem(String itemId);
+
+	void createItem(TodoItem item, String namespace);
 	
 }

@@ -2,6 +2,7 @@ package de.byoc.todo.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -10,9 +11,9 @@ import jersey.repackaged.com.google.common.base.Throwables;
 
 import org.openrdf.model.Statement;
 import org.openrdf.model.URI;
+import org.openrdf.model.Value;
 import org.openrdf.model.ValueFactory;
 import org.openrdf.model.vocabulary.RDF;
-import org.openrdf.model.vocabulary.SKOS;
 import org.openrdf.query.BindingSet;
 import org.openrdf.query.MalformedQueryException;
 import org.openrdf.query.QueryEvaluationException;
@@ -44,21 +45,31 @@ public class TodoItemServiceImpl implements TodoItemService {
 
 	@Override
 	public void createItem(TodoItem item) {
+		createItem(item, Todo.NS);
+	}
+
+	@Override
+	public void createItem(TodoItem item, String namespace) {
 		RepositoryConnection con = provider.get();
 		try {
-			URI itemUri = vf.createURI(Todo.NS, item.getId());
+			item.setId(UUID.randomUUID().toString());
 
+			URI itemUri = vf.createURI(namespace, item.getId());
+
+			item.setUrl(itemUri.stringValue());
+			
 			con.add(itemUri, RDF.TYPE, Todo.TYPE);
 			con.add(itemUri, Todo.ID, vf.createLiteral(item.getId()));
 			con.add(itemUri, Todo.TITLE, vf.createLiteral(item.getTitle()));
-			
-			boolean isCompleted = item.getCompleted() != null ? item.getCompleted() : false;
-			con.add(itemUri, Todo.COMPLETED, vf.createLiteral(isCompleted));
+			con.add(itemUri, Todo.URL, itemUri);
 
+			boolean isCompleted = item.getCompleted() != null ? item
+					.getCompleted() : false;
+			con.add(itemUri, Todo.COMPLETED, vf.createLiteral(isCompleted));
 			con.commit();
 		} catch (RepositoryException e) {
 			rollback(con);
-			throw new RuntimeException(e);
+			throw Throwables.propagate(e);
 		}
 	}
 
@@ -68,7 +79,6 @@ public class TodoItemServiceImpl implements TodoItemService {
 		} catch (RepositoryException e) {
 			Throwables.propagate(e);
 		}
-
 	}
 
 	@Override
@@ -81,27 +91,11 @@ public class TodoItemServiceImpl implements TodoItemService {
 					RDF.TYPE, Todo.TYPE, true);
 			while (statements.hasNext()) {
 				Statement next = statements.next();
-				log.debug("Found: {}", next);
-				String qs = "PREFIX : <http://todo.byoc.de/> SELECT ?id ?title ?completed WHERE { ?i :id ?id; :title ?title; :completed ?completed . FILTER (?i = <"
-						+ next.getSubject() + ">) }";
-				log.debug("Querying: {}", qs);
-				TupleQuery q = con.prepareTupleQuery(QueryLanguage.SPARQL, qs);
-				TupleQueryResult rdfItem = q.evaluate();
-				while (rdfItem.hasNext()) {
-					TodoItem found = new TodoItem();
-					BindingSet set = rdfItem.next();
-					found.setId(set.getBinding("id").getValue().stringValue());
-					found.setTitle(set.getBinding("title").getValue()
-							.stringValue());
-					found.setCompleted(set.getBinding("completed").getValue()
-							.stringValue().equals("true"));
-					log.debug("Adding {} to ResultSet", found);
-					result.add(found);
-				}
+				TodoItem item = findItem(next.getSubject());
+				result.add(item);
 			}
 			return result;
-		} catch (RepositoryException | MalformedQueryException
-				| QueryEvaluationException e) {
+		} catch (RepositoryException e) {
 			throw Throwables.propagate(e);
 		}
 	}
@@ -113,6 +107,54 @@ public class TodoItemServiceImpl implements TodoItemService {
 			con.remove(con.getStatements(null, RDF.TYPE, Todo.TYPE, true));
 			con.commit();
 		} catch (RepositoryException e) {
+			throw Throwables.propagate(e);
+		}
+	}
+
+	@Override
+	public TodoItem getItem(String itemId) {
+		try {
+			RepositoryConnection con = provider.get();
+			String qs = "PREFIX : <http://todo.byoc.de/> SELECT ?item WHERE { ?item :id ?id . FILTER (?id = '%s') }";
+			log.debug("Query by itemId: {}", qs);
+			TupleQuery query = con.prepareTupleQuery(QueryLanguage.SPARQL,
+					String.format(qs, itemId));
+			TupleQueryResult result = query.evaluate();
+			if (result.hasNext()) {
+				Value item = result.next().getBinding("item").getValue();
+				return findItem(item);
+			}
+			return null;
+		} catch (RepositoryException | MalformedQueryException
+				| QueryEvaluationException e) {
+			throw Throwables.propagate(e);
+		}
+	}
+
+	private TodoItem findItem(Value item) {
+		RepositoryConnection con = provider.get();
+		try {
+			log.debug("Getting item {}", item);
+			String qs = "PREFIX : <http://todo.byoc.de/> SELECT ?i ?id ?title ?completed WHERE { ?i :id ?id; :title ?title; :completed ?completed . FILTER (?i = <%s>) }";
+			log.debug("Querying: {}", qs);
+			TupleQuery q = con.prepareTupleQuery(QueryLanguage.SPARQL,
+					String.format(qs, item));
+			TupleQueryResult rdfItem = q.evaluate();
+			if (!rdfItem.hasNext()) {
+				return null;
+			}
+
+			TodoItem found = new TodoItem();
+			BindingSet set = rdfItem.next();
+			found.setId(set.getBinding("id").getValue().stringValue());
+			found.setTitle(set.getBinding("title").getValue().stringValue());
+			found.setCompleted(set.getBinding("completed").getValue()
+					.stringValue().equals("true"));
+			found.setUrl(set.getBinding("i").getValue().stringValue());
+			log.debug("Adding {} to ResultSet", found);
+			return found;
+		} catch (RepositoryException | MalformedQueryException
+				| QueryEvaluationException e) {
 			throw Throwables.propagate(e);
 		}
 	}

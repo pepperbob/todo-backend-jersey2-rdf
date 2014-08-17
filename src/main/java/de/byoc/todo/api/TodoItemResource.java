@@ -1,4 +1,4 @@
-package de.byoc.todo;
+package de.byoc.todo.api;
 
 import java.util.List;
 
@@ -21,25 +21,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import de.byoc.todo.data.TodoItem;
+import de.byoc.todo.jersey.PATCH;
 import de.byoc.todo.service.TodoItemService;
 
 @Path("/")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-public class RootResource {
+public class TodoItemResource {
 
-	private static final Logger logger = LoggerFactory
-			.getLogger(RootResource.class);
+	private static final Logger log = LoggerFactory
+			.getLogger(TodoItemResource.class);
 
 	private TodoItemService service;
 
 	@Inject
-	public RootResource(TodoItemService service) {
+	public TodoItemResource(TodoItemService service) {
 		this.service = service;
 	}
 
 	@GET
-	@Produces(MediaType.APPLICATION_JSON)
 	public List<TodoItem> getRootResource() {
 		return service.getAllItems();
 	}
@@ -55,28 +55,23 @@ public class RootResource {
 	}
 
 	@POST
-	@Consumes(MediaType.APPLICATION_JSON)
-	@Produces(MediaType.APPLICATION_JSON)
 	public TodoItem createTodoItem(TodoItem item, @Context UriInfo uriInfo) {
-		logger.debug("Receiving {}", item);
+		log.debug("Receiving {}", item);
 		return service.createItem(item, uriInfo.getBaseUri().toASCIIString());
 	}
 
 	@PATCH
 	@Path("{item-id}")
-	@Consumes(MediaType.APPLICATION_JSON)
-	@Produces(MediaType.APPLICATION_JSON)
 	public Response updateTodoItem(@PathParam("item-id") String itemId,
 			TodoItem item) {
-		logger.debug("Updateing item {}", item);
+		log.debug("Updateing item {}", item);
 		service.updateItem(item);
 		return Response.ok(item).build();
 	}
 
 	@DELETE
-	@Produces(MediaType.APPLICATION_JSON)
 	public Response deleteAllTodos() {
-		logger.debug("Deleting all Todos!");
+		log.debug("Deleting all Todos!");
 		service.deleteAllItems();
 		return Response.accepted().build();
 	}

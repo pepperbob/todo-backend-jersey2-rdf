@@ -45,6 +45,7 @@ public class TodoApplicationBinder extends AbstractBinder {
 				@Override
 				public void dispose(RepositoryConnection instance) {
 					try {
+						// this gets never called for some reason; Jersey/HK2 issue
 						log.debug("Disposing Connection {}", instance);
 						instance.close();
 					} catch (RepositoryException e) {

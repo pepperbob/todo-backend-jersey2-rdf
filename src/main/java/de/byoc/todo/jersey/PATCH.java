@@ -1,4 +1,4 @@
-package de.byoc.todo;
+package de.byoc.todo.jersey;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;

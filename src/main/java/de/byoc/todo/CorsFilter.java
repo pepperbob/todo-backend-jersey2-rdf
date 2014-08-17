@@ -22,12 +22,5 @@ public class CorsFilter implements ContainerResponseFilter {
 		headers.add("Access-Control-Max-Age", "3600");
 		headers.add("Access-Control-Allow-Headers",
 				"x-requested-with, origin, content-type, accept");
-
-		if ("OPTIONS".equals(request.getMethod())) {
-			if (response.getHeaderString("Accept-Patch") == null) {
-				response.getHeaders().add("Accept-Patch",
-						"application/json-patch+json");
-			}
-		}
 	}
 }

@@ -3,7 +3,7 @@ package de.byoc.todo.data;
 import org.openrdf.model.URI;
 import org.openrdf.model.impl.ValueFactoryImpl;
 
-public final class Todo {
+public final class TODO {
 
 	public static final String NS = "http://todo.byoc.de/";
 	
@@ -19,5 +19,5 @@ public final class Todo {
 
 	public static final URI URL = ValueFactoryImpl.getInstance().createURI(NS, "url");
 	
-	private Todo() {}
+	private TODO() {}
 }

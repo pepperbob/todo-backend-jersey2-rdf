@@ -1,4 +1,4 @@
-package de.byoc.todo;
+package de.byoc.todo.jersey;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -8,7 +8,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.LinkedHashMap;
 
-import javax.ws.rs.GET;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
@@ -20,12 +19,13 @@ import javax.ws.rs.ext.Provider;
 import javax.ws.rs.ext.ReaderInterceptor;
 import javax.ws.rs.ext.ReaderInterceptorContext;
 
+import jersey.repackaged.com.google.common.base.Throwables;
+
 import org.glassfish.jersey.message.MessageBodyWorkers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Throwables;
 
 import de.byoc.todo.data.TodoItem;
 
